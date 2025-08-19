@@ -1,7 +1,7 @@
 import frappe
 
 @frappe.whitelist()
-def website_items_with_price_warehouse():
+def get_website_items_with_price():
     debug_logs = []
 
     try:
@@ -22,14 +22,11 @@ def website_items_with_price_warehouse():
                 i.brand,
                 i.custom_min_qty,
                 i.custom_item_image,
-                b.warehouse,
-                b.actual_qty
+                i.item_group
             FROM
                 `tabItem Price` ip
             INNER JOIN
                 `tabItem` i ON ip.item_code = i.name
-            LEFT JOIN
-                `tabBin` b ON b.item_code = i.name
             WHERE
                 ip.price_list = 'Standard Selling'
                 AND IFNULL(i.custom_is_this_a_website_item, 0) = 1
