@@ -7,7 +7,7 @@ def get_website_items_with_price():
     try:
         debug_logs.append("Step 1: API called successfully.")
 
-        # Run the SQL
+        
         debug_logs.append("Step 2: Running SQL query...")
         data = frappe.db.sql("""
             SELECT DISTINCT
@@ -21,7 +21,6 @@ def get_website_items_with_price():
                 i.stock_uom,
                 i.brand,
                 i.custom_min_qty,
-                i.custom_item_image,
                 i.item_group
             FROM
                 `tabItem Price` ip
@@ -34,7 +33,16 @@ def get_website_items_with_price():
 
         debug_logs.append(f"Step 3: Query executed. Records fetched = {len(data)}")
 
-        # Set response
+        
+        for row in data:
+            files = frappe.get_all(
+                "File",
+                filters={"attached_to_doctype": "Item", "attached_to_name": row["item_code"]},
+                fields=["file_url", "file_name", "is_private"]
+            )
+            row["attachments"] = files
+
+        
         frappe.response["message"] = {
             "status": "success",
             "data": data
@@ -50,7 +58,7 @@ def get_website_items_with_price():
         }
         debug_logs.append(f"Step X: Error occurred -> {str(e)}")
 
-    # Always log the process
+    
     frappe.log_error("\n".join(debug_logs), "DEBUG LOGS - get_website_items_with_price")
 
     return frappe.response["message"]

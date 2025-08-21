@@ -53,7 +53,7 @@ def website_items_with_price_warehouse():
         }
         debug_logs.append(f"Step X: Error occurred -> {str(e)}")
 
-    # Always log the process
+    
     frappe.log_error("\n".join(debug_logs), "DEBUG LOGS - get_website_items_with_price")
 
     return frappe.response["message"]
