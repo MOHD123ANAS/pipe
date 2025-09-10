@@ -11,7 +11,7 @@ def get_item_attachments(item_name):
         fields=["file_url"]
     )
 
-def get_items_in_group(group_name):
+def get_items_in_group(group_name, limit=None):
     
     items = frappe.get_all(
         "Item",
@@ -26,9 +26,9 @@ def get_items_in_group(group_name):
             "item_group",
             "gst_hsn_code",
             "description"
-        ]
+        ],
+        limit=limit if limit else None
     )
-
 
     for item in items:
         attachments = get_item_attachments(item["name"])
@@ -36,35 +36,32 @@ def get_items_in_group(group_name):
 
     return items
 
-def build_group_tree(group_name):
+def build_group_tree(group_name, limit=None):
     
 
-    
-    items = get_items_in_group(group_name)
+    items = get_items_in_group(group_name, limit)
 
-    
     children = frappe.get_all(
         "Item Group",
         filters={"parent_item_group": group_name},
         pluck="name"
     )
 
-    
     if not children:
         return items
 
-    
     result = {}
     if items:
         result["_items"] = items
 
     for child in children:
-        result[child] = build_group_tree(child)
+        result[child] = build_group_tree(child, limit)
 
     return result
 
 @frappe.whitelist()
-def get_full_item_group_tree():
+def get_full_item_group_tree(limit: int = None):
     
     root = "All Item Groups"
-    return {root: build_group_tree(root)}
+    limit = int(limit) if limit else None
+    return {root: build_group_tree(root, limit)}
