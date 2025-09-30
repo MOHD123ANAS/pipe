@@ -10,7 +10,19 @@ def get_item_attachments(item_name):
         fields=["file_url"]
     )
 
-def get_items_in_group(group_name, limit=None):
+def get_item_price_from_price_list(item_name, price_list="Standard Selling"):
+    price = frappe.get_all(
+        "Item Price",
+        filters={
+            "item_code": item_name,
+            "price_list": price_list
+        },
+        fields=["price_list_rate"],
+        limit=1
+    )
+    return price[0]["price_list_rate"] if price else 0
+
+def get_items_in_group(group_name, limit=None, price_list="Standard Selling"):
     items = frappe.get_all(
         "Item",
         filters={
@@ -20,7 +32,7 @@ def get_items_in_group(group_name, limit=None):
         fields=[
             "name",
             "item_name",
-            "standard_rate as item_price",
+            "standard_rate as item_price",  
             "item_group",
             "gst_hsn_code",
             "description"
@@ -29,15 +41,17 @@ def get_items_in_group(group_name, limit=None):
     )
 
     for item in items:
+        
+        item["item_price"] = get_item_price_from_price_list(item["name"], price_list)
+
+        
         attachments = get_item_attachments(item["name"])
         item["attachments"] = [a["file_url"] for a in attachments]
 
     return items
 
-
-def get_items_recursive(group_name, limit=None):
-    
-    items = get_items_in_group(group_name, limit)
+def get_items_recursive(group_name, limit=None, price_list="Standard Selling"):
+    items = get_items_in_group(group_name, limit, price_list)
 
     children = frappe.get_all(
         "Item Group",
@@ -46,24 +60,19 @@ def get_items_recursive(group_name, limit=None):
     )
 
     for child in children:
-        child_items = get_items_recursive(child, limit)
+        child_items = get_items_recursive(child, limit, price_list)
         items.extend(child_items)
 
     return items
 
-
 @frappe.whitelist()
-def get_items_by_group(parent_group=None, child_group=None, limit: int = None):
-    
+def get_items_by_group(parent_group=None, child_group=None, limit: int = None, price_list="Standard Selling"):
     limit = int(limit) if limit else None
 
-    
     if parent_group and child_group:
-        return get_items_in_group(child_group, limit)
+        return get_items_in_group(child_group, limit, price_list)
 
-    
     if parent_group:
-        return get_items_recursive(parent_group, limit)
+        return get_items_recursive(parent_group, limit, price_list)
 
-    
-    return get_items_recursive("All Item Groups", limit)
+    return get_items_recursive("All Item Groups", limit, price_list)

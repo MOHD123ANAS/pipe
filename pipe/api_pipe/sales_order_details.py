@@ -8,7 +8,7 @@ def get_sales_orders_with_items():
     try:
         debug_logs.append("Step 1: API called successfully.")
 
-        # Fetch all Sales Orders
+        
         debug_logs.append("Step 2: Fetching all Sales Orders...")
         sales_orders = frappe.get_all(
             "Sales Order",
@@ -22,7 +22,7 @@ def get_sales_orders_with_items():
 
         debug_logs.append(f"Step 3: {len(sales_orders)} Sales Orders fetched.")
 
-        # Fetch Sales Order Items for each SO
+        
         for idx, so in enumerate(sales_orders, start=1):
             debug_logs.append(f"Step 4.{idx}: Fetching items for Sales Order {so.name}...")
             
@@ -46,7 +46,7 @@ def get_sales_orders_with_items():
             "error": str(e)
         }
 
-    # Always log the process
+    
     frappe.log_error("\n".join(debug_logs), "DEBUG LOGS - get_sales_orders_with_items")
 
     return {
