@@ -10,7 +10,6 @@ def get_item_prices(item_names, price_list="Standard Selling"):
 
 @frappe.whitelist()
 def get_items_by_parent_groups(limit=None):
-    
     result = {}
     limit = int(limit) if limit else None
 
@@ -28,16 +27,38 @@ def get_items_by_parent_groups(limit=None):
                 ["item_group", "descendants of (inclusive)", pg.name],
                 ["custom_is_this_a_website_item", "=", 1]
             ],
-            fields=["name", "item_name", "item_group", "stock_uom", "standard_rate", "gst_hsn_code", "description"],
+            fields=[
+                "name",
+                "item_name",
+                "item_group",
+                "stock_uom",
+                "standard_rate",
+                "gst_hsn_code",
+                "description"
+            ],
             limit_page_length=limit 
         )
 
-        
         item_names = [item["name"] for item in items]
+
+        # --- prices
         prices_map = get_item_prices(item_names, price_list="Standard Selling")
 
+        # --- gst_rate mapping
+        gst_map = {}
+        if item_names:
+            tax_rows = frappe.get_all(
+                "Item Tax",
+                filters={"parent": ["in", item_names]},
+                fields=["parent", "item_tax_template"]
+            )
+            for tr in tax_rows:
+                if tr.get("item_tax_template"):
+                    gst_rate = frappe.db.get_value("Item Tax Template", tr["item_tax_template"], "gst_rate")
+                    gst_map[tr["parent"]] = gst_rate
+
+        # --- merge everything
         for item in items:
-            
             item["standard_rate"] = prices_map.get(item["name"], 0)
 
             attachments = frappe.get_all(
@@ -49,6 +70,9 @@ def get_items_by_parent_groups(limit=None):
                 fields=["file_url", "file_name"]
             )
             item["attachments"] = attachments
+
+            item["gst_rate"] = gst_map.get(item["name"])  # ✅ added field
+
             items_data.append(item)
 
         result[pg.name] = items_data

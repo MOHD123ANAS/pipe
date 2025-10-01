@@ -1,7 +1,6 @@
 import frappe
 
 def get_item_attachments(item_name):
-    
     return frappe.get_all(
         "File",
         filters={
@@ -12,7 +11,6 @@ def get_item_attachments(item_name):
     )
 
 def get_items_in_group(group_name, limit=None):
-    
     items = frappe.get_all(
         "Item",
         filters={
@@ -30,15 +28,35 @@ def get_items_in_group(group_name, limit=None):
         limit=limit if limit else None
     )
 
-    for item in items:
-        attachments = get_item_attachments(item["name"])
-        item["attachments"] = [a["file_url"] for a in attachments]
+    # --- fetch gst_rate from Item Tax Template
+    item_codes = [x["name"] for x in items]
+    if item_codes:
+        tax_rows = frappe.get_all(
+            "Item Tax",
+            filters={"parent": ["in", item_codes]},
+            fields=["parent", "item_tax_template"]
+        )
+
+        gst_map = {}
+        for tr in tax_rows:
+            if tr.get("item_tax_template"):
+                gst_rate = frappe.db.get_value("Item Tax Template", tr["item_tax_template"], "gst_rate")
+                gst_map[tr["parent"]] = gst_rate
+
+        # merge into items
+        for item in items:
+            attachments = get_item_attachments(item["name"])
+            item["attachments"] = [a["file_url"] for a in attachments]
+            item["gst_rate"] = gst_map.get(item["name"])  # ✅ added field
+    else:
+        for item in items:
+            attachments = get_item_attachments(item["name"])
+            item["attachments"] = [a["file_url"] for a in attachments]
+            item["gst_rate"] = None
 
     return items
 
 def build_group_tree(group_name, limit=None):
-    
-
     items = get_items_in_group(group_name, limit)
 
     children = frappe.get_all(
@@ -61,7 +79,7 @@ def build_group_tree(group_name, limit=None):
 
 @frappe.whitelist()
 def get_full_item_group_tree(limit: int = None):
-    
     root = "All Item Groups"
     limit = int(limit) if limit else None
     return {root: build_group_tree(root, limit)}
+
