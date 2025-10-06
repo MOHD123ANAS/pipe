@@ -1,5 +1,6 @@
 import frappe
 
+@frappe.whitelist()
 def get_item_attachments(item_name):
     return frappe.get_all(
         "File",
@@ -10,6 +11,7 @@ def get_item_attachments(item_name):
         fields=["file_url"]
     )
 
+@frappe.whitelist()
 def get_items_in_group(group_name, limit=None):
     items = frappe.get_all(
         "Item",
@@ -20,7 +22,6 @@ def get_items_in_group(group_name, limit=None):
         fields=[
             "name",
             "item_name",
-            "standard_rate as item_price",
             "item_group",
             "gst_hsn_code",
             "description"
@@ -28,7 +29,16 @@ def get_items_in_group(group_name, limit=None):
         limit=limit if limit else None
     )
 
-    # --- fetch gst_rate from Item Tax Template
+    
+    for item in items:
+        price = frappe.db.get_value(
+            "Item Price",
+            {"item_code": item["name"], "price_list": "Standard Selling"},
+            "price_list_rate"
+        )
+        item["item_price"] = price or 0
+
+    
     item_codes = [x["name"] for x in items]
     if item_codes:
         tax_rows = frappe.get_all(
@@ -43,18 +53,24 @@ def get_items_in_group(group_name, limit=None):
                 gst_rate = frappe.db.get_value("Item Tax Template", tr["item_tax_template"], "gst_rate")
                 gst_map[tr["parent"]] = gst_rate
 
-        # merge into items
+        
         for item in items:
             attachments = get_item_attachments(item["name"])
             item["attachments"] = [a["file_url"] for a in attachments]
-            item["gst_rate"] = gst_map.get(item["name"])  # ✅ added field
+            item["gst_rate"] = gst_map.get(item["name"])
+            item["item_tax_template_id"] = next(
+                (tr["item_tax_template"] for tr in tax_rows if tr["parent"] == item["name"]),
+                None
+            )
     else:
         for item in items:
             attachments = get_item_attachments(item["name"])
             item["attachments"] = [a["file_url"] for a in attachments]
             item["gst_rate"] = None
+            item["item_tax_template_id"] = None
 
     return items
+
 
 def build_group_tree(group_name, limit=None):
     items = get_items_in_group(group_name, limit)

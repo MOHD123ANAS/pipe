@@ -5,6 +5,12 @@ app_description = "It helps connecting multiple doctypes with api"
 app_email = "mohammedanas18025@gmail.com"
 app_license = "mit"
 
+# doc_events = {
+#     "Sales Order": {
+#         "validate": "pipe.api_pipe.sales_order_create.sales_order_set_taxes_and_totals",
+#     }
+# }
+
 # Apps
 # ------------------
 

@@ -23,7 +23,7 @@ def get_item_price_from_price_list(item_name, price_list="Standard Selling"):
     return price[0]["price_list_rate"] if price else 0
 
 def get_gst_rate(item_name):
-    """Fetch gst_rate from Item Tax Template for given Item"""
+    
     tax_row = frappe.get_all(
         "Item Tax",
         filters={"parent": item_name},
@@ -33,6 +33,16 @@ def get_gst_rate(item_name):
     if tax_row and tax_row[0].get("item_tax_template"):
         return frappe.db.get_value("Item Tax Template", tax_row[0]["item_tax_template"], "gst_rate")
     return None
+
+def get_item_tax_template_id(item_name):
+    
+    tax_row = frappe.get_all(
+        "Item Tax",
+        filters={"parent": item_name},
+        fields=["item_tax_template"],
+        limit=1
+    )
+    return tax_row[0]["item_tax_template"] if tax_row and tax_row[0].get("item_tax_template") else None
 
 def get_items_in_group(group_name, limit=None, price_list="Standard Selling"):
     items = frappe.get_all(
@@ -53,15 +63,18 @@ def get_items_in_group(group_name, limit=None, price_list="Standard Selling"):
     )
 
     for item in items:
-        # price
+        
         item["item_price"] = get_item_price_from_price_list(item["name"], price_list)
 
-        # attachments
+        
         attachments = get_item_attachments(item["name"])
         item["attachments"] = [a["file_url"] for a in attachments]
 
-        # gst_rate
+        
         item["gst_rate"] = get_gst_rate(item["name"])
+
+        
+        item["item_tax_template_id"] = get_item_tax_template_id(item["name"])
 
     return items
 

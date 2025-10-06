@@ -41,11 +41,12 @@ def get_items_by_parent_groups(limit=None):
 
         item_names = [item["name"] for item in items]
 
-        # --- prices
+        
         prices_map = get_item_prices(item_names, price_list="Standard Selling")
 
-        # --- gst_rate mapping
+        
         gst_map = {}
+        tax_template_map = {}
         if item_names:
             tax_rows = frappe.get_all(
                 "Item Tax",
@@ -56,8 +57,9 @@ def get_items_by_parent_groups(limit=None):
                 if tr.get("item_tax_template"):
                     gst_rate = frappe.db.get_value("Item Tax Template", tr["item_tax_template"], "gst_rate")
                     gst_map[tr["parent"]] = gst_rate
+                    tax_template_map[tr["parent"]] = tr["item_tax_template"]  
 
-        # --- merge everything
+        
         for item in items:
             item["standard_rate"] = prices_map.get(item["name"], 0)
 
@@ -71,7 +73,8 @@ def get_items_by_parent_groups(limit=None):
             )
             item["attachments"] = attachments
 
-            item["gst_rate"] = gst_map.get(item["name"])  # ✅ added field
+            item["gst_rate"] = gst_map.get(item["name"])
+            item["item_tax_template_id"] = tax_template_map.get(item["name"])  
 
             items_data.append(item)
 
