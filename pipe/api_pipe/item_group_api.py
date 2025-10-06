@@ -19,6 +19,20 @@ def get_items_by_parent_groups(limit=None):
         fields=["name"]
     )
 
+    
+    discount_map = {}
+    pricing_rules = frappe.get_all(
+        "Pricing Rule",
+        filters={"is_fixed_discount": 1},
+        fields=["name", "discount_percentage"]
+    )
+    for rule in pricing_rules:
+        rule_doc = frappe.get_doc("Pricing Rule", rule["name"])
+        for d in rule_doc.items:
+            
+            existing = discount_map.get(d.item_code, 0)
+            discount_map[d.item_code] = max(existing, rule["discount_percentage"])
+
     for pg in parent_groups:
         items_data = []
         items = frappe.get_all(
@@ -55,11 +69,12 @@ def get_items_by_parent_groups(limit=None):
             )
             for tr in tax_rows:
                 if tr.get("item_tax_template"):
-                    gst_rate = frappe.db.get_value("Item Tax Template", tr["item_tax_template"], "gst_rate")
+                    gst_rate = frappe.db.get_value(
+                        "Item Tax Template", tr["item_tax_template"], "gst_rate"
+                    )
                     gst_map[tr["parent"]] = gst_rate
                     tax_template_map[tr["parent"]] = tr["item_tax_template"]  
 
-        
         for item in items:
             item["standard_rate"] = prices_map.get(item["name"], 0)
 
@@ -75,6 +90,9 @@ def get_items_by_parent_groups(limit=None):
 
             item["gst_rate"] = gst_map.get(item["name"])
             item["item_tax_template_id"] = tax_template_map.get(item["name"])  
+
+            
+            item["discount_percentage"] = discount_map.get(item["name"]) or None
 
             items_data.append(item)
 

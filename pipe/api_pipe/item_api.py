@@ -38,36 +38,55 @@ def get_items_in_group(group_name, limit=None):
         )
         item["item_price"] = price or 0
 
-    
     item_codes = [x["name"] for x in items]
+    gst_map = {}
+    tax_template_map = {}
+
     if item_codes:
+        
         tax_rows = frappe.get_all(
             "Item Tax",
             filters={"parent": ["in", item_codes]},
             fields=["parent", "item_tax_template"]
         )
 
-        gst_map = {}
         for tr in tax_rows:
             if tr.get("item_tax_template"):
-                gst_rate = frappe.db.get_value("Item Tax Template", tr["item_tax_template"], "gst_rate")
+                gst_rate = frappe.db.get_value(
+                    "Item Tax Template", tr["item_tax_template"], "gst_rate"
+                )
                 gst_map[tr["parent"]] = gst_rate
+                tax_template_map[tr["parent"]] = tr["item_tax_template"]
+
+        
+        discount_map = {}
+        pricing_rules = frappe.get_all(
+            "Pricing Rule",
+            filters={"is_fixed_discount": 1},
+            fields=["name", "discount_percentage"]
+        )
+
+        if pricing_rules:
+            for rule in pricing_rules:
+                rule_doc = frappe.get_doc("Pricing Rule", rule["name"])
+                for d in rule_doc.items:
+                    if d.item_code in item_codes:
+                        discount_map[d.item_code] = rule["discount_percentage"]
 
         
         for item in items:
             attachments = get_item_attachments(item["name"])
             item["attachments"] = [a["file_url"] for a in attachments]
             item["gst_rate"] = gst_map.get(item["name"])
-            item["item_tax_template_id"] = next(
-                (tr["item_tax_template"] for tr in tax_rows if tr["parent"] == item["name"]),
-                None
-            )
+            item["item_tax_template_id"] = tax_template_map.get(item["name"])
+            item["discount_percentage"] = discount_map.get(item["name"])  
     else:
         for item in items:
             attachments = get_item_attachments(item["name"])
             item["attachments"] = [a["file_url"] for a in attachments]
             item["gst_rate"] = None
             item["item_tax_template_id"] = None
+            item["discount_percentage"] = None  
 
     return items
 
@@ -98,4 +117,3 @@ def get_full_item_group_tree(limit: int = None):
     root = "All Item Groups"
     limit = int(limit) if limit else None
     return {root: build_group_tree(root, limit)}
-
