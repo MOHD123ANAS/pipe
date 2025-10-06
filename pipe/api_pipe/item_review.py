@@ -21,7 +21,7 @@ def get_item_reviews(name=None, item=None,
     reviews = frappe.get_all(
         "Item Review",
         filters=filters,
-        fields=["name", "item", "product_rating", "total_reviews"],
+        fields=["name", "item", "product_rating", "total_reviews","total_feedback"],
         limit_start=limit_start,
         limit_page_length=limit_page_length,
         order_by="modified desc"
