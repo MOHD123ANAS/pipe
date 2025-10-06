@@ -3,7 +3,7 @@ from frappe import _
 from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals
 from erpnext.controllers.accounts_controller import get_taxes_and_charges
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def sales_o(**kwargs):
 
     data = frappe._dict(kwargs)
@@ -63,7 +63,7 @@ def sales_o(**kwargs):
 
     
     doc.insert(ignore_permissions=True)
-    frappe.db.commit()
+    
 
     return {
         "status": "success",
