@@ -5,9 +5,10 @@ from erpnext.controllers.accounts_controller import get_taxes_and_charges
 
 @frappe.whitelist()
 def sales_o(**kwargs):
-
     data = frappe._dict(kwargs)
     doc = frappe.new_doc("Sales Order")
+
+    
     doc.customer = data.get("customer")
     doc.company = data.get("company") or frappe.defaults.get_user_default("Company")
     doc.transaction_date = frappe.utils.nowdate()
@@ -17,6 +18,7 @@ def sales_o(**kwargs):
     doc.tax_category = data.get("tax_category") or "In-State"
     doc.taxes_and_charges = data.get("taxes_and_charges")
     doc.disable_rounded_total = 1
+    doc.supplier=data.get("supplier")
 
     
     doc.shipping_address_name = data.get("shipping_address_name")
@@ -52,7 +54,6 @@ def sales_o(**kwargs):
             master_doctype="Sales Taxes and Charges Template",
             master_name=doc.taxes_and_charges
         )
-        
         if isinstance(taxes_list, dict) and taxes_list.get("taxes"):
             for tax in taxes_list["taxes"]:
                 doc.append("taxes", tax)
@@ -63,11 +64,7 @@ def sales_o(**kwargs):
 
     
     doc.insert(ignore_permissions=True)
-    
 
-    return {
-        "status": "success",
-        "sales_order": doc.name,
-        "grand_total": doc.grand_total,
-        "gst_treatment": doc.gst_treatment
-    }
+    
+    full_doc = frappe.get_doc("Sales Order", doc.name)
+    return full_doc.as_dict()
