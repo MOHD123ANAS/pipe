@@ -4,7 +4,6 @@ from collections import defaultdict
 @frappe.whitelist()
 def get_item_details():
     try:
-        
         filters = {}
         if frappe.form_dict.get("item_code"):
             filters["name"] = frappe.form_dict.get("item_code")
@@ -15,7 +14,6 @@ def get_item_details():
 
         filters["custom_is_this_a_website_item"] = 1
 
-        
         items = frappe.get_all(
             "Item",
             filters=filters,
@@ -37,14 +35,13 @@ def get_item_details():
 
         item_codes = [x["item_code"] for x in items]
 
-        
+        # ---- Product Details ----
         prod_details = frappe.get_all(
             "Product Details",
             filters={"parent": ["in", item_codes]},
             fields=["parent", "parameter", "value", "category"]
         )
 
-        
         prod_map = {}
         for pd in prod_details:
             parent = pd["parent"]
@@ -54,17 +51,30 @@ def get_item_details():
                 "value": pd.get("value")
             })
 
-        
+        # ---- Attachments ----
         attachments = frappe.get_all(
             "File",
             filters={"attached_to_doctype": "Item", "attached_to_name": ["in", item_codes]},
             fields=["attached_to_name", "file_url", "file_name", "is_private"]
         )
+
         attachment_map = {}
         for att in attachments:
-            attachment_map.setdefault(att["attached_to_name"], []).append(att)
+            item_code = att["attached_to_name"]
+            file_name = (att["file_name"] or "").lower()
+            file_url_name = (att["file_url"].split("/")[-1] or "").lower()
+            item_code_lower = item_code.lower()
 
-        
+            # ✅ Include attachments whose name starts with item code or item code followed by '-'
+            if (
+                file_name.startswith(item_code_lower)
+                or file_name.startswith(f"{item_code_lower}-")
+                or file_url_name.startswith(item_code_lower)
+                or file_url_name.startswith(f"{item_code_lower}-")
+            ):
+                attachment_map.setdefault(item_code, []).append(att)
+
+        # ---- Price List ----
         price_list = "Standard Selling"
         prices = frappe.get_all(
             "Item Price",
@@ -73,7 +83,7 @@ def get_item_details():
         )
         price_map = {p["item_code"]: p["price_list_rate"] for p in prices}
 
-        
+        # ---- Item Group Hierarchy ----
         group_map = {}
         for row in items:
             ig = row.get("item_group")
@@ -85,7 +95,7 @@ def get_item_details():
                 "child_category": child_group
             }
 
-        
+        # ---- Merge Data ----
         for row in items:
             row["product_details"] = prod_map.get(row["item_code"], {})
             row["attachments"] = attachment_map.get(row["item_code"], [])

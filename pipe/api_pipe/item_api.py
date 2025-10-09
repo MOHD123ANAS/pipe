@@ -1,5 +1,39 @@
 import frappe
 
+def get_filtered_attachments_for_items(item_codes):
+    
+    if not item_codes:
+        return {}
+
+    attachments = frappe.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": "Item",
+            "attached_to_name": ["in", item_codes],
+        },
+        fields=["attached_to_name", "file_url", "file_name", "is_private"]
+    )
+
+    attachment_map = {}
+
+    for att in attachments:
+        item_code = att["attached_to_name"]
+        file_name = (att.get("file_name") or "").lower()
+        file_url_name = (att.get("file_url", "").split("/")[-1] or "").lower()
+        item_code_lower = item_code.lower()
+
+        
+        if (
+            file_name.startswith(item_code_lower)
+            or file_name.startswith(f"{item_code_lower}-")
+            or file_url_name.startswith(item_code_lower)
+            or file_url_name.startswith(f"{item_code_lower}-")
+        ):
+            attachment_map.setdefault(item_code, []).append(att)
+
+    return attachment_map
+
+
 @frappe.whitelist()
 def get_item_attachments(item_name):
     return frappe.get_all(
@@ -10,6 +44,7 @@ def get_item_attachments(item_name):
         },
         fields=["file_url"]
     )
+
 
 @frappe.whitelist()
 def get_items_in_group(group_name, limit=None):
@@ -29,7 +64,6 @@ def get_items_in_group(group_name, limit=None):
         limit=limit if limit else None
     )
 
-    
     for item in items:
         price = frappe.db.get_value(
             "Item Price",
@@ -74,19 +108,21 @@ def get_items_in_group(group_name, limit=None):
                         discount_map[d.item_code] = rule["discount_percentage"]
 
         
+        attachment_map = get_filtered_attachments_for_items(item_codes)
+
         for item in items:
-            attachments = get_item_attachments(item["name"])
-            item["attachments"] = [a["file_url"] for a in attachments]
+            item["attachments"] = [a["file_url"] for a in attachment_map.get(item["name"], [])]
             item["gst_rate"] = gst_map.get(item["name"])
             item["item_tax_template_id"] = tax_template_map.get(item["name"])
-            item["discount_percentage"] = discount_map.get(item["name"])  
+            item["discount_percentage"] = discount_map.get(item["name"])
+
     else:
         for item in items:
             attachments = get_item_attachments(item["name"])
             item["attachments"] = [a["file_url"] for a in attachments]
             item["gst_rate"] = None
             item["item_tax_template_id"] = None
-            item["discount_percentage"] = None  
+            item["discount_percentage"] = None
 
     return items
 
@@ -111,6 +147,7 @@ def build_group_tree(group_name, limit=None):
         result[child] = build_group_tree(child, limit)
 
     return result
+
 
 @frappe.whitelist()
 def get_full_item_group_tree(limit: int = None):
