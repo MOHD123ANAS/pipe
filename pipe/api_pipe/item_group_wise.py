@@ -1,7 +1,6 @@
 import frappe
 
 def get_filtered_attachments_for_items(item_codes):
-    
     if not item_codes:
         return {}
 
@@ -15,14 +14,12 @@ def get_filtered_attachments_for_items(item_codes):
     )
 
     attachment_map = {}
-
     for att in attachments:
         item_code = att["attached_to_name"]
         file_name = (att.get("file_name") or "").lower()
         file_url_name = (att.get("file_url", "").split("/")[-1] or "").lower()
         item_code_lower = item_code.lower()
 
-        
         if (
             file_name.startswith(item_code_lower)
             or file_name.startswith(f"{item_code_lower}-")
@@ -126,7 +123,6 @@ def get_items_in_group(group_name, limit=None, price_list="Standard Selling", di
     return items
 
 
-
 def get_items_recursive(group_name, limit=None, price_list="Standard Selling", discount_map=None):
     items = get_items_in_group(group_name, limit, price_list, discount_map)
 
@@ -144,10 +140,65 @@ def get_items_recursive(group_name, limit=None, price_list="Standard Selling", d
 
 
 @frappe.whitelist()
-def get_items_by_group(parent_group=None, child_group=None, limit: int = None, price_list="Standard Selling"):
+def get_items_by_group(parent_group=None, child_group=None, tag=None, limit: int = None, price_list="Standard Selling"):
+    
     limit = int(limit) if limit else None
-    discount_map = get_fixed_discount_map()  
+    discount_map = get_fixed_discount_map()
 
+    
+    if tag:
+        tagged_item_names = frappe.get_all(
+            "Tag Link",
+            filters={
+                "document_type": "Item",
+                "tag": tag
+            },
+            pluck="document_name"
+        )
+
+        if not tagged_item_names:
+            return []
+
+        
+        items = frappe.get_all(
+            "Item",
+            filters={
+                "name": ["in", tagged_item_names],
+                "custom_is_this_a_website_item": 1
+            },
+            fields=[
+                "name",
+                "item_name",
+                "standard_rate as item_price",
+                "item_group",
+                "gst_hsn_code",
+                "description"
+            ],
+            limit=limit if limit else None
+        )
+
+        item_codes = [x["name"] for x in items]
+        attachment_map = get_filtered_attachments_for_items(item_codes)
+
+        for item in items:
+            item["item_price"] = get_item_price_from_price_list(item["name"], price_list)
+            item["attachments"] = [a["file_url"] for a in attachment_map.get(item["name"], [])]
+            item["gst_rate"] = get_gst_rate(item["name"])
+            item["item_tax_template_id"] = get_item_tax_template_id(item["name"])
+            item["discount_percentage"] = discount_map.get(item["name"]) if discount_map else None
+            item["tags"] = frappe.get_all(
+                "Tag Link",
+                filters={
+                    "document_type": "Item",
+                    "document_name": item["name"]
+                },
+                fields=["tag"],
+                pluck="tag"
+            )
+
+        return items
+
+    
     if parent_group and child_group:
         return get_items_in_group(child_group, limit, price_list, discount_map)
 
