@@ -102,25 +102,29 @@ def get_items_in_group(group_name, limit=None, price_list="Standard Selling", di
         limit=limit if limit else None
     )
 
-    # --- Fetch all item codes first
     item_codes = [x["name"] for x in items]
     attachment_map = get_filtered_attachments_for_items(item_codes)
 
     for item in items:
-        # --- Price from Item Price List
         item["item_price"] = get_item_price_from_price_list(item["name"], price_list)
-
-        # --- Attachments (filtered)
         item["attachments"] = [a["file_url"] for a in attachment_map.get(item["name"], [])]
-
-        # --- GST and Tax Template
         item["gst_rate"] = get_gst_rate(item["name"])
         item["item_tax_template_id"] = get_item_tax_template_id(item["name"])
-
-        # --- Discount
         item["discount_percentage"] = discount_map.get(item["name"]) if discount_map else None
 
+        
+        item["tags"] = frappe.get_all(
+            "Tag Link",
+            filters={
+                "document_type": "Item",
+                "document_name": item["name"]
+            },
+            fields=["tag"],
+            pluck="tag"
+        )
+
     return items
+
 
 
 def get_items_recursive(group_name, limit=None, price_list="Standard Selling", discount_map=None):
