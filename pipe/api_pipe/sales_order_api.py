@@ -19,6 +19,7 @@ def sales_o(**kwargs):
     doc.taxes_and_charges = data.get("taxes_and_charges")
     doc.disable_rounded_total = 1
     doc.supplier=data.get("supplier")
+    doc.mode_of_payment=data.get("mode_of_payment")
 
     
     doc.shipping_address_name = data.get("shipping_address_name")
